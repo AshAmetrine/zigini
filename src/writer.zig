@@ -4,9 +4,11 @@ const utils = @import("utils.zig");
 const Child = std.meta.Child;
 
 const FieldHandlerFn = fn (comptime ns: ?[]const u8, comptime key: ?[]const u8) ?[]const u8;
+const WriteValueFn = @TypeOf(defaultWriteValue);
 
 const WriteOptions = struct {
     renameHandler: ?FieldHandlerFn = null,
+    writeValue: WriteValueFn = defaultWriteValue,
 
     // Whether to write fields when they're the same as the default value
     write_default_values: bool = true,
@@ -45,9 +47,9 @@ pub fn writeFromStruct(data: anytype, writer: *std.Io.Writer, comptime namespace
                 const value = @field(data, field.name);
                 if (opts.write_default_values or !utils.isDefaultValue(field, value)) {
                     if (t_info == .optional and value == null) {
-                        try writeProperty(writer, field_name, "null");
+                        try writeProperty(writer, field_name, "null", opts.writeValue);
                     } else {
-                        try writeProperty(writer, field_name, utils.unwrapIfOptional(field.type, value));
+                        try writeProperty(writer, field_name, utils.unwrapIfOptional(field.type, value), opts.writeValue);
                     }
                 }
             },
@@ -65,19 +67,25 @@ pub fn writeFromStruct(data: anytype, writer: *std.Io.Writer, comptime namespace
     }
 }
 
-fn writeProperty(writer: *std.Io.Writer, field_name: []const u8, val: anytype) !void {
-    switch (@typeInfo(@TypeOf(val))) {
+pub fn defaultWriteValue(writer: *std.Io.Writer, comptime T: type, val: T) anyerror!void {
+    switch (@typeInfo(T)) {
         .bool => {
-            try writer.print("{s}={s}\n", .{ field_name, if (val) "true" else "false" });
+            try writer.print("{s}", .{if (val) "true" else "false"});
         },
         .int, .comptime_int, .float, .comptime_float => {
-            try writer.print("{s}={d}\n", .{ field_name, val });
+            try writer.print("{d}", .{val});
         },
         .@"enum" => {
-            try writer.print("{s}={s}\n", .{ field_name, @tagName(val) });
+            try writer.print("{s}", .{@tagName(val)});
         },
         else => {
-            try writer.print("{s}={s}\n", .{ field_name, val });
+            try writer.print("{s}", .{val});
         },
     }
+}
+
+fn writeProperty(writer: *std.Io.Writer, field_name: []const u8, val: anytype, comptime writeValue: WriteValueFn) anyerror!void {
+    try writer.print("{s}=", .{field_name});
+    try writeValue(writer, @TypeOf(val), val);
+    try writer.writeByte('\n');
 }

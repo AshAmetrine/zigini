@@ -26,7 +26,7 @@ pub fn main() !void {
 fn writeRenameHandler(comptime header: ?[]const u8, comptime field_name: ?[]const u8) ?[]const u8 {
     if (field_name == null) {
         // We can rename the header here
-        if (std.mem.eql(u8, header.?, "colors")) return "better-colors";
+        if (std.mem.eql(u8, header.?, "build_options")) return "build";
 
         return null; // null = keep the same
     }
@@ -36,12 +36,12 @@ fn writeRenameHandler(comptime header: ?[]const u8, comptime field_name: ?[]cons
     // Note: renaming the header above only renames it in the output
     // so make sure to compare the header with the original name
     // rather than what you renamed it to.
-    if (header != null and std.mem.eql(u8, header.?, "colors")) {
-        if (std.mem.eql(u8, field_name.?, "bg")) return "new-bg";
+    if (header != null and std.mem.eql(u8, header.?, "build_options")) {
+        if (std.mem.eql(u8, field_name.?, "release")) return "optimize";
     }
 
     // returning null removes the field from the output
-    if (std.mem.eql(u8, field_name.?, "is_a_puppet")) return null;
+    if (std.mem.eql(u8, field_name.?, "version")) return null;
 
     return field_name;
 }

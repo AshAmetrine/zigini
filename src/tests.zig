@@ -132,6 +132,41 @@ test "Write: with namespace" {
     try std.testing.expectEqualStrings(expected, ini_str);
 }
 
+fn customWriteValue(writer: *std.Io.Writer, comptime T: type, value: T) anyerror!void {
+    if (T == NumberOrText) {
+        switch (value) {
+            .int => |v| try writer.print("{d}", .{v}),
+            .str => |v| try writer.print("{s}", .{v}),
+        }
+        return;
+    }
+
+    try ini.defaultWriteValue(writer, T, value);
+}
+
+test "Write: union with custom writer" {
+    const conf = UnionConfig{
+        .value = .{ .str = "hello world" },
+        .opt_value = .{ .int = 2 },
+        .num = 12,
+    };
+
+    var buf: [100]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buf);
+    try ini.writeFromStruct(conf, &writer, null, .{ .write_default_values = false, .writeValue = customWriteValue });
+    const ini_str = writer.buffer[0..writer.end];
+
+    const expected =
+        \\value=hello world
+        \\opt_value=2
+        \\num=12
+        \\
+    ;
+
+    try std.testing.expect(ini_str.len == expected.len);
+    try std.testing.expectEqualStrings(expected, ini_str);
+}
+
 fn customConvert(allocator: std.mem.Allocator, comptime T: type, value: []const u8) anyerror!T {
     if (T == NumberOrText) {
         if (std.fmt.parseInt(i32, value, 10)) |num| {
