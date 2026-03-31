@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) void {
     const ini = b.dependency("ini", .{});
 
     const zigini = b.addModule("zigini", .{
-        .root_source_file = b.path("src/main.zig"),
+        .root_source_file = b.path("src/root.zig"),
     });
     zigini.addImport("ini", ini.module("ini"));
 

@@ -1,5 +1,5 @@
 const std = @import("std");
-const ini = @import("main.zig");
+const ini = @import("zigini");
 const Ini = ini.Ini;
 
 const NestedConfig = struct {
@@ -13,6 +13,17 @@ const Config = struct {
     num: u8 = 1,
     nested_config: NestedConfig = .{},
     @"Other Config": ?NestedConfig = null,
+};
+
+const NumberOrText = union(enum) {
+    int: i32,
+    str: []const u8,
+};
+
+const UnionConfig = struct {
+    value: NumberOrText = .{ .int = 0 },
+    opt_value: ?NumberOrText = .{ .str = "abc" },
+    num: u8 = 0,
 };
 
 fn handleField(arena: std.mem.Allocator, field: ini.IniField) ?ini.IniField {
@@ -119,4 +130,44 @@ test "Write: with namespace" {
     ;
     try std.testing.expect(ini_str.len == expected.len);
     try std.testing.expectEqualStrings(expected, ini_str);
+}
+
+fn customConvert(allocator: std.mem.Allocator, comptime T: type, value: []const u8) anyerror!T {
+    if (T == NumberOrText) {
+        if (std.fmt.parseInt(i32, value, 10)) |num| {
+            return @unionInit(T, "int", num);
+        } else |_| {}
+
+        const str = try allocator.dupe(u8, value);
+        return @unionInit(T, "str", str);
+    }
+
+    return ini.defaultConvertWithDelegate(allocator, T, value, customConvert);
+}
+
+test "Read with custom converter: union" {
+    var reader = std.Io.Reader.fixed(
+        \\value=hello world
+        \\opt_value=2
+        \\num=12
+    );
+
+    var ini_conf = Ini(UnionConfig).init(std.testing.allocator);
+    defer ini_conf.deinit();
+
+    const config = try ini_conf.readToStruct(&reader, .{ .convert = customConvert });
+
+    switch (config.value) {
+        .int => try std.testing.expect(false),
+        .str => |v| try std.testing.expectEqualStrings("hello world", v),
+    }
+
+    try std.testing.expect(config.opt_value != null);
+
+    switch (config.opt_value.?) {
+        .int => |v| try std.testing.expectEqual(2, v),
+        .str => try std.testing.expect(false),
+    }
+
+    try std.testing.expectEqual(12, config.num);
 }

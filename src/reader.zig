@@ -16,12 +16,50 @@ pub const IniField = struct {
     value: []const u8,
 };
 
+pub fn defaultConvert(arena_allocator: std.mem.Allocator, comptime T1: type, val: []const u8) anyerror!T1 {
+    return defaultConvertWithDelegate(arena_allocator, T1, val, defaultConvert);
+}
+
+pub fn defaultConvertWithDelegate(
+    arena_allocator: std.mem.Allocator,
+    comptime T1: type,
+    val: []const u8,
+    comptime delegate: @TypeOf(defaultConvert),
+) anyerror!T1 {
+    return switch (@typeInfo(T1)) {
+        .int => {
+            if (val.len == 1) {
+                const char = val[0];
+                if (std.ascii.isAscii(char) and !std.ascii.isDigit(char))
+                    return char;
+            }
+            return try std.fmt.parseInt(T1, val, 0);
+        },
+        .float => try std.fmt.parseFloat(T1, val),
+        .bool => boolStringMap.get(val) orelse error.InvalidValue,
+        .@"enum" => std.meta.stringToEnum(T1, val) orelse error.InvalidValue,
+        .optional => |opt| {
+            if (val.len == 0 or std.mem.eql(u8, val, "null")) return null;
+            return try @call(.auto, delegate, .{ arena_allocator, opt.child, val });
+        },
+        .pointer => |p| {
+            if (p.child != u8) @compileError("Type Unsupported");
+            if (p.sentinel_ptr != null) return try arena_allocator.dupeZ(u8, val);
+            return try arena_allocator.dupe(u8, val);
+        },
+        .void => return {},
+        else => @compileError("Type Unsupported"),
+    };
+}
+
 pub fn Ini(comptime T: type) type {
     return struct {
         const Self = @This();
         const FieldHandlerFn = fn (arena: std.mem.Allocator, field: IniField) ?IniField;
         const ErrorHandlerFn = fn (type_name: []const u8, key: []const u8, value: []const u8, err: anyerror) void;
+        const ConvertFn = @TypeOf(defaultConvert);
         const ReadOptions = struct {
+            convert: ConvertFn = defaultConvert,
             fieldHandler: ?FieldHandlerFn = null,
             errorHandler: ?ErrorHandlerFn = null,
             comment_characters: []const u8 = ";#",
@@ -77,7 +115,7 @@ pub fn Ini(comptime T: type) type {
                         }
 
                         if (ini_hkv_opt) |ini_hkv| {
-                            try self.setStructVal(T, &data, ini_hkv, opts.errorHandler);
+                            try self.setStructVal(T, &data, ini_hkv, opts);
                         }
                     },
                     .enumeration => {},
@@ -87,7 +125,7 @@ pub fn Ini(comptime T: type) type {
             return data;
         }
 
-        fn setStructVal(self: *Self, comptime T1: type, data: *T1, ini_hkv: IniField, error_handler: ?ErrorHandlerFn) !void {
+        fn setStructVal(self: *Self, comptime T1: type, data: *T1, ini_hkv: IniField, opts: ReadOptions) !void {
             inline for (std.meta.fields(T1)) |field| {
                 const field_info = @typeInfo(field.type);
                 const is_opt_struct = field_info == .optional and @typeInfo(Child(field.type)) == .@"struct";
@@ -100,12 +138,12 @@ pub fn Ini(comptime T: type) type {
                                 @field(data, field.name) = field_type{};
                         }
                         var inner_struct = utils.unwrapIfOptional(field.type, @field(data, field.name));
-                        try self.setStructVal(field_type, &inner_struct, .{ .key = ini_hkv.key, .value = ini_hkv.value }, error_handler);
+                        try self.setStructVal(field_type, &inner_struct, .{ .key = ini_hkv.key, .value = ini_hkv.value }, opts);
                         @field(data, field.name) = inner_struct;
                     }
                 } else if (ini_hkv.header.len == 0 and std.ascii.eqlIgnoreCase(field.name, ini_hkv.key)) {
-                    const conv_value = self.convert(field.type, ini_hkv.value) catch |err| {
-                        if (error_handler) |handler| @call(.auto, handler, .{ @typeName(field.type), ini_hkv.key, ini_hkv.value, err });
+                    const conv_value = opts.convert(self.arena.allocator(), field.type, ini_hkv.value) catch |err| {
+                        if (opts.errorHandler) |handler| @call(.auto, handler, .{ @typeName(field.type), ini_hkv.key, ini_hkv.value, err });
                         return err;
                     };
                     @field(data, field.name) = conv_value;
@@ -113,32 +151,5 @@ pub fn Ini(comptime T: type) type {
             }
         }
 
-        fn convert(self: *Self, comptime T1: type, val: []const u8) !T1 {
-            return switch (@typeInfo(T1)) {
-                .int => {
-                    if (val.len == 1) {
-                        const char = val[0];
-                        if (std.ascii.isAscii(char) and !std.ascii.isDigit(char))
-                            return char;
-                    }
-                    return try std.fmt.parseInt(T1, val, 0);
-                },
-                .float => try std.fmt.parseFloat(T1, val),
-                .bool => boolStringMap.get(val) orelse error.InvalidValue,
-                .@"enum" => std.meta.stringToEnum(T1, val) orelse error.InvalidValue,
-                .optional => |opt| {
-                    if (val.len == 0 or std.mem.eql(u8, val, "null")) return null;
-                    return try self.convert(opt.child, val);
-                },
-                .pointer => |p| {
-                    if (p.child != u8) @compileError("Type Unsupported");
-                    const arena_allocator = self.arena.allocator();
-                    if (p.sentinel_ptr != null) return try arena_allocator.dupeZ(u8, val);
-                    return try arena_allocator.dupe(u8, val);
-                },
-                .void => return {},
-                else => @compileError("Type Unsupported"),
-            };
-        }
     };
 }
