@@ -150,6 +150,5 @@ pub fn Ini(comptime T: type) type {
                 }
             }
         }
-
     };
 }

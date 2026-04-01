@@ -44,4 +44,8 @@ pub fn build(b: *std.Build) void {
 
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&run_tests.step);
+
+    const fmt_step = b.step("fmt", "Format source files");
+    const fmt = b.addFmt(.{ .paths = &.{ "build.zig", "build.zig.zon", "src" } });
+    fmt_step.dependOn(&fmt.step);
 }
