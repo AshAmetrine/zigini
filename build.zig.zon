@@ -1,6 +1,6 @@
 .{
     .name = .zigini,
-    .version = "0.3.2",
+    .version = "0.4.0",
     .fingerprint = 0xa1be3af8ed012905,
     .minimum_zig_version = "0.15.0",
     .dependencies = .{
