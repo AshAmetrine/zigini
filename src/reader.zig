@@ -81,12 +81,12 @@ pub fn Ini(comptime T: type) type {
             self.arena.deinit();
         }
 
-        pub fn readFileToStruct(self: *Self, path: []const u8, comptime opts: ReadOptions) !T {
-            const file = try std.fs.cwd().openFile(path, .{});
-            defer file.close();
+        pub fn readFileToStruct(self: *Self, io: std.Io, path: []const u8, comptime opts: ReadOptions) !T {
+            const file = try std.Io.Dir.cwd().openFile(io, path, .{});
+            defer file.close(io);
 
             var buf: [4096]u8 = undefined;
-            var reader = file.reader(&buf);
+            var reader = file.reader(io, &buf);
             return self.readToStruct(&reader.interface, opts);
         }
 

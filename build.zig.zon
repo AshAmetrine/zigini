@@ -1,12 +1,12 @@
 .{
     .name = .zigini,
-    .version = "0.4.0",
+    .version = "0.5.0",
     .fingerprint = 0xa1be3af8ed012905,
-    .minimum_zig_version = "0.15.0",
+    .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .ini = .{
-            .url = "https://github.com/ziglibs/ini/archive/918f16d0dcf893d0c1cdffe204faa08bb3584e04.tar.gz",
-            .hash = "ini-0.1.0-YCQ9Ys0pAABixEvvQvhVXAdqRE3wrZk_wiL9TPNHhB8d",
+            .url = "git+https://github.com/AshAmetrine/ziglibs-ini?ref=zig-0.16.0#3b733e10adc6c4c48050709b97a22258bc2e6156",
+            .hash = "ini-0.1.0-YCQ9YiwsAACghqF8LZyjAF2H_NnL6n29QLuCe0fsmPTo",
         },
     },
     .paths = .{

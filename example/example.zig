@@ -2,20 +2,18 @@ const std = @import("std");
 const zigini = @import("zigini");
 const Config = @import("Config.zig");
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+pub fn main(init: std.process.Init) !void {
+    const allocator = init.gpa;
 
     var config_reader = zigini.Ini(Config).init(allocator);
     defer config_reader.deinit();
 
-    const config = try config_reader.readFileToStruct("example/config.ini", .{});
+    const config = try config_reader.readFileToStruct(init.io, "example/config.ini", .{});
 
     std.debug.print("Writing ini file to stdout...\n\n", .{});
 
     var stdout_buf: [1024]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buf);
+    var stdout_writer = std.Io.File.stdout().writer(init.io, &stdout_buf);
     const stdout = &stdout_writer.interface;
 
     try zigini.writeFromStruct(config, stdout, null, .{ .renameHandler = writeRenameHandler, .write_default_values = false });
