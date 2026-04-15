@@ -2,7 +2,7 @@
 
 A Zig library to read/write an INI file using a struct.
 
-This library requires Zig >=0.15.0. Check releases if you're using an older version.
+This library requires Zig >=0.16.0. Check releases if you're using an older version.
 
 ## Features
 
@@ -33,9 +33,26 @@ exe.root_module.addImport("zigini", zigini_dep.module("zigini"));
 ## Quick start
 
 ```zig
-var ini = zigini.Ini(Config).init(allocator);
-const config = try ini.readFileToStruct("config.ini", .{});
-try zigini.writeFromStruct(config, writer, null, .{});
+const std = @import("std");
+const zigini = @import("zigini");
+const Config = @import("Config.zig");
+
+pub fn main(init: std.process.Init) !void {
+    var config_reader = zigini.Ini(Config).init(init.gpa);
+    defer config_reader.deinit();
+
+    const config = try config_reader.readFileToStruct(init.io, "example/config.ini", .{});
+
+    std.debug.print("Writing ini file to stdout...\n\n", .{});
+
+    var stdout_buf: [1024]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writer(init.io, &stdout_buf);
+    const stdout = &stdout_writer.interface;
+
+    try zigini.writeFromStruct(config, stdout, null, .{});
+
+    try stdout.flush();
+}
 ```
 
 An example is provided in `example/example.zig`.
