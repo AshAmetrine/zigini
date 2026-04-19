@@ -5,8 +5,8 @@
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .ini = .{
-            .url = "git+https://github.com/AshAmetrine/ziglibs-ini?ref=zig-0.16.0#3b733e10adc6c4c48050709b97a22258bc2e6156",
-            .hash = "ini-0.1.0-YCQ9YiwsAACghqF8LZyjAF2H_NnL6n29QLuCe0fsmPTo",
+            .url = "git+https://github.com/ziglibs/ini#10cfba648f709588ab2f8785f56641024c510df9",
+            .hash = "ini-0.1.0-YCQ9YnsrAAAxl1kQHi95ths2vSkdPIJxzUg6e2Oo83w_",
         },
     },
     .paths = .{
